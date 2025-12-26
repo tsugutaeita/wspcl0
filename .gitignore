@@ -1,0 +1,17 @@
+# 実行ファイル
+*.out
+*.o
+
+# gnuplot
+*.gp
+*.plt
+
+# データファイル
+*.csv
+*.dat
+
+# 画像ファイル
+*.png
+*.jpg
+*.jpeg
+*.bmp
