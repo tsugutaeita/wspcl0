@@ -98,7 +98,7 @@ if find_min_error
 end
 
 # 理想曲線を生成
-file = File.new("ideal_curve.csv", "w:UTF-8")
+file = File.new("calculated_curve.csv", "w:UTF-8")
 data = File.new(data_file, "r:UTF-8")
 
 File.foreach(data) do |line|
@@ -129,9 +129,7 @@ gp_file = "plot.gp"
 
 gnuplot_script = <<~GP
     set encoding utf8
-    # Use a generic sans font so gnuplot/pango will select an available font on the system.
-    # Avoid specifying platform-specific CJK fonts (e.g. メイリオ) which may not be installed.
-    set terminal pngcairo font 'sans,15' size 800,800
+    set terminal pngcairo font 'Noto Sans,15' size 800,800
     # x軸とy軸のスケールを同じにする
     set size ratio -1
     set datafile separator ' '
@@ -149,7 +147,7 @@ gnuplot_script = <<~GP
     set bmargin 6
     set label "VGS-VDS特性曲線（vdd=#{@vdd} V, vth=#{@vth} V, k=#{@k} S/V）" at graph 0.05, -0.2
     #plot '#{data_file}' with linespoints dt 2 lc 'black' title 'plot'
-    plot '#{data_file}' with linespoints dt 1 lc 'black' pt 7 title '実測値', 'ideal_curve.csv' with linespoints dt 2 lc 'black' pt 9 title '近似値'
+    plot '#{data_file}' lc 'black' pt 7 title '実測値', 'calculated_curve.csv' with linespoints dt 2 lc 'black' pt 9 title '近似値'
 GP
 
 # UTF-8 で書き出す
