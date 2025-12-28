@@ -1,13 +1,18 @@
 # -*- coding: utf-8 -*-
 # 上部にこのマジックコメントを必ず記述してください
 
+# nmosソース接地増幅回路用コード
+
 # データファイル名
 data_file = "vgs_vds_1221.csv"
 
 # 最小誤差を求めるか
+# true: 最小二乗法で最適化を行う
+# false: 最適化を行わず、初期値のまま計算
 find_min_error = true
 
-# 係数など
+# 係数などの初期値
+# 0.5*unCox*W/Lをkとして定義
 @k = 0.00034
 @vth = 0.5
 @R = 2011
@@ -23,14 +28,14 @@ step_vth = 0.001
 
 # 飽和領域のモデル式
 def vds_sat(vgs)
-  vds = @vdd-@R*0.5*@k*((vgs-@vth)**2)
+  vds = @vdd-@R*@k*((vgs-@vth)**2)
   return vds
 end
 # 線形領域のモデル式
-# 2次方程式 0.5*k*R*vds^2 - [1 + k*R*(vgs-vth)]*vds + vdd = 0 を解く
+# 2次方程式 k*R*vds^2 - (1 + 2*k*R*(vgs-vth))*vds + vdd = 0 を解く
 def vds_lin(vgs, vds_raw)
-  a = 0.5 * @k * @R
-  b = -(1 + @k * @R * (vgs - @vth))
+  a = @k*@R
+  b = -(1 + 2 * @k * @R * (vgs - @vth))
   c = @vdd
   
   # 判別式
@@ -43,12 +48,8 @@ def vds_lin(vgs, vds_raw)
     return vds_sat(vgs)
   end
   
-  # 2つの解のうち、物理的に妥当な方（小さい方）を選択
-  vds1 = (-b - Math.sqrt(discriminant)) / (2*a)
-  vds2 = (-b + Math.sqrt(discriminant)) / (2*a)
-  
-  # 通常は小さい方の解が物理的に正しい
-  vds = [vds1, vds2].min
+  # 解析の結果、2つの解のうち小さい方が妥当と判明した。（Vds < Vgs-Vth）
+  vds = (-b - Math.sqrt(discriminant)) / (2*a)
   
   return vds
 end
