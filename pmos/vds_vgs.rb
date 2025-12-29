@@ -4,24 +4,24 @@
 # pmosソース接地増幅回路用コード
 
 # データファイル名
-data_file = "vgs_vds_1221.csv"
+data_file = "vgs_vds_1219.csv"
 
 # 最小誤差を求めるか
 # true: 最小二乗法で最適化を行う
 # false: 最適化を行わず、初期値のまま計算
-find_min_error = true
+find_min_error = false
 
 # 係数などの初期値
 @k = 0.00034
-@vth = 0.5
+@vth = -0.7
 @R = 2011
 @vdd = 6.0
 
 # シミュレーション値
 k_min = 0.0001
 k_max = 0.001
-vth_min = 0.4
-vth_max = 1.0
+vth_min = -1.2
+vth_max = -0.4
 step_k = 0.000001
 step_vth = 0.001
 
@@ -59,7 +59,7 @@ end
 # 線形領域と飽和領域の境界
 def vgs_hat(k, vth)
   vgs_hat = ((-1+(1+4*k*@R*@vdd)**0.5)/(2*k*@R))+vth
-  #puts "vgs_hat=#{vgs_hat} (VGS < vgs_hat: 飽和, VGS >= vgs_hat: 線形)"
+  #puts "vgs_hat=#{vgs_hat} (VGS > vgs_hat: 飽和, VGS <= vgs_hat: 線形)"
   return vgs_hat
 end
 
@@ -109,18 +109,19 @@ File.foreach(data) do |line|
   vgs_raw, vds_raw = line.split.map(&:to_f)
   if vgs_raw >= vgs_hat(@k, @vth) then
     vds_ideal = vds_lin(vgs_raw, vds_raw)
-  #  log = "lin"
+    log = "lin"
   elsif vgs_raw < @vth
     vds_ideal = @vdd
+    log = "cutoff"
   else
     vds_ideal = vds_sat(vgs_raw)
-  #  log = "sat"
+    log = "sat"
   end
   file.write(vgs_raw)
   file.write(" ")
-  file.puts(vds_ideal)
-  #file.write(" ")
-  #file.puts(log)
+  file.write(vds_ideal)
+  file.write(" ")
+  file.puts(log)
 end
 data.close
 file.close
@@ -128,7 +129,7 @@ file.close
 # 実行するかどうか。true にすると生成後に gnuplot を呼び出します（PATH に gnuplot が必要）。
 run_gnuplot = true
 
-output_image = 'vgs_vds_1221.png'
+output_image = 'vgs_vds_1219.png'
 gp_file = "plot.gp"
 
 gnuplot_script = <<~GP
@@ -142,7 +143,7 @@ gnuplot_script = <<~GP
     set grid
     set xlabel "ゲート・ソース間電圧VGS [V]"
     set ylabel "ドレイン・ソース間電圧VDS [V]"
-    set xrange [0:8]
+    set xrange [0:-8]
     set yrange [0:7]
     set xtics 1
     set mxtics 5
