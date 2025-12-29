@@ -4,7 +4,7 @@
 # pmosソース接地増幅回路用コード
 
 # データファイル名
-data_file = "vgs_vds_1229.csv"
+data_file = "vgs_vds_1221.csv"
 
 # 最小誤差を求めるか
 # true: 最小二乗法で最適化を行う
@@ -73,9 +73,9 @@ if find_min_error
       data = File.new(data_file, "r:UTF-8")
       File.foreach(data) do |line|
         vgs_raw, vds_raw = line.split.map(&:to_f)
-        if vgs_raw >= vgs_hat(@k, @vth) then
+        if vgs_raw <= vgs_hat(@k, @vth) then
           vds_ideal = vds_lin(vgs_raw, vds_raw)
-        elsif vgs_raw < @vth
+        elsif vgs_raw > @vth
           vds_ideal = @vdd
         else
           vds_ideal = vds_sat(vgs_raw)
@@ -149,7 +149,7 @@ gnuplot_script = <<~GP
     set ytics 1
     set mytics 5
     set bmargin 6
-    set label "VGS-VDS特性曲線（vdd=#{@vdd} V, vth=#{@vth} V, k=#{@k} S/V）" at graph 0.05, -0.2
+    set label "VGS-VDS特性曲線（vdd=#{@vdd} V, vth=#{@vth} V, k=#{(@k*1000000).round} µS/V）" at graph 0.05, -0.2
     #plot '#{data_file}' with linespoints dt 2 lc 'black' title 'plot'
     plot '#{data_file}' lc 'black' pt 7 title '実測値', 'calculated_curve.csv' with linespoints dt 2 lc 'black' pt 9 title '近似値'
 GP
