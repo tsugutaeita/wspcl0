@@ -146,7 +146,7 @@ gnuplot_script = <<~GP
     set ytics 1
     set mytics 5
     set bmargin 6
-    set label "VGS-VDS特性曲線（vdd=#{@vdd} V, vth=#{@vth} V, k=#{@k} S/V）" at graph 0.05, -0.2
+    set label "VGS-VDS特性曲線（vdd=#{@vdd} V, vth=#{@vth} V, k=#{(@k*1000000).round} µS/V）" at graph 0.05, -0.2
     #plot '#{data_file}' with linespoints dt 2 lc 'black' title 'plot'
     plot '#{data_file}' lc 'black' pt 7 title '実測値', 'calculated_curve.csv' with linespoints dt 2 lc 'black' pt 9 title '近似値'
 GP
