@@ -1,8 +1,11 @@
 # 研究用リポジトリ
 ## 動作確認環境
 - ubuntu 22.04
-- Ruby 3.0.2p107
-- gnuplot 5.4 patchlevel2
+  - Ruby 3.0.2p107
+  - gnuplot 5.4 patchlevel2
+- Rocky 9.7
+  - Python 3.9.25
+  - gnuplot 5.4 patchlevel 3
 ## 案内
 | ディレクトリ | 内容 |
 | --- | --- |
