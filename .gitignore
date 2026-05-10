@@ -2,13 +2,12 @@
 *.out
 *.o
 
-# gnuplot
-*.gp
-*.plt
-
 # データファイル
 *.csv
 *.dat
+
+# ログ
+*.log
 
 # 画像ファイル
 *.png
