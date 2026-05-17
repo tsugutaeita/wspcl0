@@ -43,10 +43,18 @@ def run_interpreter():
     print("\n--- オプション設定 (Enterでデフォルト値) ---")
     
     # 区切り文字の設定
-    print("区切り文字を選択: [0] カンマ(,)  [1] タブ(\\t)  [2] スペース( )")
+    print("データファイルA用の区切り文字を選択: [0] カンマ(,)  [1] タブ(\\t)  [2] スペース( )")
     sep_choice = input("番号入力 [default: 0] > ") or "0"
     sep_map = {"0": ",", "1": "\\t", "2": " "}
-    sep = sep_map.get(sep_choice, ",")
+    sep_a = sep_map.get(sep_choice, ",")
+    
+    # --- 修正箇所：file_b がある場合のみ質問する ---
+    sep_b = "" 
+    if file_b:
+        print("データファイルB用の区切り文字を選択: [0] カンマ(,)  [1] タブ(\\t)  [2] スペース( )")
+        sep_choice_b = input("番号入力 [default: 0] > ") or "0"
+        sep_b = sep_map.get(sep_choice_b, ",")
+    # ----------------------------------------------
 
     base_name = os.path.splitext(os.path.basename(file_a))[0]
     out_file = input(f"出力ファイル名 [default: {base_name}_out.png] > ") or f"{base_name}_out.png"
@@ -58,10 +66,11 @@ def run_interpreter():
     # 4. Gnuplot引数の組み立て
     # sepを変数として追加。文字列なのでクォートで囲む
     e_string = (
-        f"file_A='{file_a}'; "
-        f"file_B='{file_b}'; "
+        f"file_a='{file_a}'; "
+        f"file_b='{file_b}'; "
         f"out_file='{out_file}'; "
-        f"sep='{sep}'; "
+        f"sep_a='{sep_a}'; "
+        f"sep_b='{sep_b}'; "
         f"w_size={width}; "
         f"h_size={height}; "
         f"vth_i={vth_init}; "

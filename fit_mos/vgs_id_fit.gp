@@ -30,7 +30,7 @@ set label 1 sprintf("Model: %s\nV_{th} = %.3f [V]\nk = %.1f [uS/V]", model_formu
           font ",10" tc rgb "red" boxed
 
 # フィッティング実行
-fit f(x) file_A using 1:2 via k, Vth
+fit f(x) file_a using 1:2 via k, Vth
 
 # --- 図中ラベルの設定 ---
 # graph 座標系（0.0〜1.0）を使用して左上（0.05, 0.9）あたりに表示
@@ -42,7 +42,7 @@ set label 1 sprintf("Model: %s\nV_{th} = %.3f [V]\nk = %.2e [A/V^2]", model_form
 # --- プロット ---
 set xlabel "V_{GS} [V]"
 set ylabel "I_D [A]"
-set title sprintf("MOSFET Parameter Fitting\nSource: %s", file_A)
+set title sprintf("MOSFET Parameter Fitting\nSource: %s", file_a) noenhanced
 
 # 凡例（key）の位置を調整（ラベルと重なる場合は右下などに移動）
 set key bottom right opaque
