@@ -29,5 +29,28 @@ if __name__ == "__main__":
     if len(sys.argv) < 2:
         print("Usage: python script.py <input_file1> <input_file2> ...")
     else:
-        for file_path in sys.argv[1:]:
-            convert_to_csv(file_path)
+        # 引数で渡されたファイルパスのリストを取得
+        file_paths = sys.argv[1:]
+        
+        # 変換処理に回すファイルを格納するリスト
+        targets_to_convert = []
+
+        # 1. 先に末尾が _converted.csv のファイルだけを処理（削除）
+        for file_path in file_paths:
+            if file_path.endswith('_converted.csv'):
+                if os.path.exists(file_path):
+                    try:
+                        os.remove(file_path)
+                        print(f"Removed: {file_path} (古い変換済ファイルを削除しました)")
+                    except Exception as e:
+                        print(f"Error removing {file_path}: {e}")
+            else:
+                # _converted.csv 以外のファイルは後で変換するためキープ
+                targets_to_convert.append(file_path)
+
+        # 2. 残ったファイルに対してのみ、順次変換処理を実行
+        for file_path in targets_to_convert:
+            if os.path.exists(file_path):
+                convert_to_csv(file_path)
+            else:
+                print(f"Warning: {file_path} が見つかりません。スキップします。")

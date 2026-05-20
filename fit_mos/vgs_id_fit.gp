@@ -14,12 +14,8 @@ f(x) = (x > Vth) ? (k/2.0) * (x - Vth)**2 : 0
 k = k_i
 Vth = vth_i
 
-# セパレータ設定（前回の解決策を反映）
-if (exists("sep") && sep eq ",") {
-    set datafile separator ","
-} else {
-    set datafile separator whitespace
-}
+# セパレータ設定
+set datafile separator ","
 
 # テキストボックスのスタイル設定（背景を白、枠線なし）
 set style textbox opaque fc rgb "white" noborder
@@ -47,7 +43,7 @@ set title sprintf("MOSFET Parameter Fitting\nSource: %s", file_a) noenhanced
 # 凡例（key）の位置を調整（ラベルと重なる場合は右下などに移動）
 set key bottom right opaque
 
-plot file_A using 1:2 title "Measured Data" with points pt 7 lc rgb "black", \
+plot file_a using 1:2 title "Measured Data" with points pt 7 lc rgb "black", \
      f(x) title "Fitted Curve" with lines lw 2 lc rgb "black" dt 1
 
 # コンソールへの結果表示
