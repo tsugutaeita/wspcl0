@@ -3,6 +3,7 @@
 *.o
 
 # データファイル
+fit_mos/csv/*
 *.csv
 *.dat
 
