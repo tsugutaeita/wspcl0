@@ -8,9 +8,9 @@
 // --- ピン定義 (XIAO ESP32-C3) ---
 #define OLED_MOSI D10
 #define OLED_SCK  D8
-#define OLED_CS   D7
-#define OLED_DC   D6
-#define OLED_RST  D5
+#define OLED_CS   D0
+#define OLED_DC   D1
+#define OLED_RST  D3
 
 // --- フレームバッファ ---
 // SSD1322は4bitグレースケール。1バイトで2ピクセル(横)を表現。
@@ -195,9 +195,9 @@ void setup() {
     
     // 4. フォントの描画 (画像と被らないようにX=72あたりから開始)
     // エスケープシーケンスに注意: C:\ を表示するには C:\\ と書く
-    drawString(72, 8, "ESP32-C3");
-    drawString(72, 24, "SSD1322 OLED");
-    drawString(72, 40, "東雲ﾌｫﾝﾄ \\0x5C");
+    // drawString(72, 8, "ESP32-C3");
+    // drawString(72, 24, "SSD1322 OLED");
+    // drawString(72, 40, "東雲ﾌｫﾝﾄ \\0x5C");
 
     // 5. 画面に反映
     updateDisplay();
