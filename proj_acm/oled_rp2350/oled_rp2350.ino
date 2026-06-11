@@ -194,9 +194,9 @@ void setup() {
     clearBuffer();
     drawImage();
     
-    // drawString(72, 8, "ESP32-C3");
-    // drawString(72, 24, "SSD1322 OLED");
-    // drawString(72, 40, "東雲ﾌｫﾝﾄ \\0x5C");
+    drawString(72, 8, "RP2350");
+    drawString(72, 24, "SSD1322 OLED");
+    drawString(72, 40, "東雲ﾌｫﾝﾄ \\0x5C");
 
     updateDisplay();
 }
