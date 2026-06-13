@@ -3,7 +3,8 @@
 
 // 作成済みのヘッダをインクルード
 #include "m_h64w69.h"
-#include "shinonome.h"
+#include "shinonome16.h"   // 16x16フォント用
+#include "shinonome32.h" // 32x32フォント用
 
 // --- ピン定義 (XIAO RP2350) ---
 #define OLED_MOSI D10
@@ -13,8 +14,6 @@
 #define OLED_RST  D3
 
 // --- フレームバッファ ---
-// SSD1322は4bitグレースケール。1バイトで2ピクセル(横)を表現。
-// 幅256ピクセル = 128バイト, 高さ64ピクセル
 #define DISP_WIDTH  256
 #define DISP_HEIGHT 64
 uint8_t frameBuffer[DISP_HEIGHT][DISP_WIDTH / 2];
@@ -60,7 +59,7 @@ void initSSD1322() {
     sendCommand(0xFD); sendData(0x12); // Unlock OLED driver IC
     sendCommand(0xAE);                 // Display OFF
 
-    // 【修正箇所】カラムアドレスを中央の256ピクセル分(28~91)に設定
+    // カラムアドレスを中央の256ピクセル分(28~91)に設定
     sendCommand(0x15); sendData(0x1C); sendData(0x5B); 
     
     sendCommand(0x75); sendData(0x00); sendData(0x3F); // Set Row Address (0~63)
@@ -68,6 +67,22 @@ void initSSD1322() {
     sendCommand(0xA0); sendData(0x14); sendData(0x11); // Set Re-map / Dual COM Line Mode
     sendCommand(0xB3); sendData(0xF0); // Front Clock Divider
     sendCommand(0xCA); sendData(0x3F); // MUX Ratio
+
+    // ---------------------------------------------------
+    // 【対策3】輝度ムラ（クロストーク）を軽減するための電圧設定
+    // ---------------------------------------------------
+    // マスターカレント（全体の電流量上限）を少し下げる (0x00~0x0F, デフォルト0x0F)
+    sendCommand(0xC7); sendData(0x0F); 
+    
+    // プレチャージ電圧を引き上げる (0x00~0x1F, デフォルト0x17)
+    // ※最大値の 0x1F に設定してムラが改善するか確認します
+    sendCommand(0xBB); sendData(0x17); 
+
+    // VCOMH電圧を引き上げる (0x00~0x07, デフォルト0x04)
+    // ※最大値の 0x07 に設定してムラが改善するか確認します
+    sendCommand(0xBE); sendData(0x04); 
+    // ---------------------------------------------------
+
     sendCommand(0xAF);                 // Display ON
 }
 
@@ -78,7 +93,6 @@ void clearBuffer() {
 
 // バッファの内容をOLEDに転送
 void updateDisplay() {
-    // 【修正箇所】ここでも同じオフセット範囲を指定
     sendCommand(0x15); sendData(0x1C); sendData(0x5B);
     sendCommand(0x75); sendData(0x00); sendData(0x3F);
     sendCommand(0x5C); // Write RAM command
@@ -100,7 +114,7 @@ void drawPixel(int x, int y, uint8_t color) {
     int byteIdx = x / 2;
     color &= 0x0F; // 4bitにクリップ
 
-    // 偶数Xは上位4bit、奇数Xは下位4bit (OLEDのRemap設定による)
+    // 偶数Xは上位4bit、奇数Xは下位4bit
     if (x % 2 == 0) {
         frameBuffer[y][byteIdx] = (frameBuffer[y][byteIdx] & 0x0F) | (color << 4);
     } else {
@@ -108,28 +122,26 @@ void drawPixel(int x, int y, uint8_t color) {
     }
 }
 
-// Ruby出力画像の描画 (左端に描画)
+// 画像の描画 (左端に描画)
 void drawImage() {
-    // ヘッダ名に合わせて m_mono_H64W69_width / m_mono_H64W69_height / m_mono_H64W69_data を使用
     for (int y = 0; y < m_mono_H64W69_height; y++) {
         for (int x = 0; x < m_mono_H64W69_width; x++) {
-            // 値が1(描画対象)なら輝度15(真っ白)で描画
             if (m_mono_H64W69_data[y][x] == 1) {
-                drawPixel(x, y, 15);
+                drawPixel(x, y, 10); // ★ムラ対策で輝度10推奨
             }
         }
     }
 }
 
-// UTF-8コードをキーにして東雲フォント(1文字)を描画
-void drawChar(int x, int y, uint32_t utf8_code) {
-    // 線形探索でフォントを探す
-    for (int i = 0; i < shinonome_num_glyphs; i++) {
-        if (shinonome_font[i].utf8_code == utf8_code) {
-            // 見つかったら 16x16 ピクセルを描画
+// ====================================================
+// 16x16フォント描画関数群
+// ====================================================
+void drawChar16(int x, int y, uint32_t utf8_code) {
+    for (int i = 0; i < shinonome16_num_glyphs; i++) {
+        if (shinonome16_font[i].utf8_code == utf8_code) {
             for (int row = 0; row < 16; row++) {
-                uint8_t b1 = shinonome_font[i].bitmap[row * 2];     // 左8px
-                uint8_t b2 = shinonome_font[i].bitmap[row * 2 + 1]; // 右8px
+                uint8_t b1 = shinonome16_font[i].bitmap[row * 2];
+                uint8_t b2 = shinonome16_font[i].bitmap[row * 2 + 1];
 
                 for (int col = 0; col < 8; col++) {
                     if ((b1 >> (7 - col)) & 1) drawPixel(x + col, y + row, 15);
@@ -141,8 +153,7 @@ void drawChar(int x, int y, uint32_t utf8_code) {
     }
 }
 
-// UTF-8文字列を解析して描画 (16x16フォント前提)
-void drawString(int x, int y, const char* str) {
+void drawString16(int x, int y, const char* str) {
     int cursor_x = x;
     int cursor_y = y;
     int i = 0;
@@ -150,23 +161,19 @@ void drawString(int x, int y, const char* str) {
     while (str[i] != '\0') {
         uint8_t c = str[i];
         uint32_t code = 0;
-        int char_width = 16; // 全角デフォルト
+        int char_width = 16; 
 
         if ((c & 0x80) == 0x00) {
-            // 1バイト文字 (ASCII)
             code = c;
             i += 1;
-            char_width = 8; // 半角の場合は幅を8にする等、必要に応じて調整
+            char_width = 8; // 半角は8px進む
         } else if ((c & 0xE0) == 0xC0) {
-            // 2バイト文字
             code = (c << 8) | (uint8_t)str[i+1];
             i += 2;
         } else if ((c & 0xF0) == 0xE0) {
-            // 3バイト文字 (一般的な日本語)
             code = ((uint32_t)c << 16) | ((uint32_t)(uint8_t)str[i+1] << 8) | (uint8_t)str[i+2];
             i += 3;
         } else {
-            // 4バイト以上はスキップ(未対応とする)
             i++;
             continue;
         }
@@ -177,7 +184,7 @@ void drawString(int x, int y, const char* str) {
             continue;
         }
 
-        drawChar(cursor_x, cursor_y, code);
+        drawChar16(cursor_x, cursor_y, code);
         cursor_x += char_width; 
         
         if (cursor_x + char_width > DISP_WIDTH) {
@@ -187,6 +194,74 @@ void drawString(int x, int y, const char* str) {
     }
 }
 
+// ====================================================
+// 32x32フォント描画関数群
+// ====================================================
+void drawChar32(int x, int y, uint32_t utf8_code) {
+    for (int i = 0; i < shinonome32_num_glyphs; i++) {
+        if (shinonome32_font[i].utf8_code == utf8_code) {
+            for (int row = 0; row < 32; row++) {
+                uint8_t b1 = shinonome32_font[i].bitmap[row * 4];     // 1~8px
+                uint8_t b2 = shinonome32_font[i].bitmap[row * 4 + 1]; // 9~16px
+                uint8_t b3 = shinonome32_font[i].bitmap[row * 4 + 2]; // 17~24px
+                uint8_t b4 = shinonome32_font[i].bitmap[row * 4 + 3]; // 25~32px
+
+                for (int col = 0; col < 8; col++) {
+                    if ((b1 >> (7 - col)) & 1) drawPixel(x + col,      y + row, 15);
+                    if ((b2 >> (7 - col)) & 1) drawPixel(x + 8 + col,  y + row, 15);
+                    if ((b3 >> (7 - col)) & 1) drawPixel(x + 16 + col, y + row, 15);
+                    if ((b4 >> (7 - col)) & 1) drawPixel(x + 24 + col, y + row, 15);
+                }
+            }
+            break;
+        }
+    }
+}
+
+void drawString32(int x, int y, const char* str) {
+    int cursor_x = x;
+    int cursor_y = y;
+    int i = 0;
+
+    while (str[i] != '\0') {
+        uint8_t c = str[i];
+        uint32_t code = 0;
+        int char_width = 32; // 全角デフォルト
+
+        if ((c & 0x80) == 0x00) {
+            code = c;
+            i += 1;
+            char_width = 16; // 半角は16px進む
+        } else if ((c & 0xE0) == 0xC0) {
+            code = (c << 8) | (uint8_t)str[i+1];
+            i += 2;
+        } else if ((c & 0xF0) == 0xE0) {
+            code = ((uint32_t)c << 16) | ((uint32_t)(uint8_t)str[i+1] << 8) | (uint8_t)str[i+2];
+            i += 3;
+        } else {
+            i++;
+            continue;
+        }
+
+        if (code == '\n') {
+            cursor_x = x;
+            cursor_y += 32;
+            continue;
+        }
+
+        drawChar32(cursor_x, cursor_y, code);
+        cursor_x += char_width; 
+        
+        if (cursor_x + char_width > DISP_WIDTH) {
+            cursor_x = x;
+            cursor_y += 32;
+        }
+    }
+}
+
+// ====================================================
+// メイン処理
+// ====================================================
 void setup() {
     Serial.begin(115200);
     
@@ -194,9 +269,18 @@ void setup() {
     clearBuffer();
     drawImage();
     
-    drawString(72, 8, "RP2350");
-    drawString(72, 24, "SSD1322 OLED");
-    drawString(72, 40, "東雲ﾌｫﾝﾄ \\0x5C");
+    // 【描画テスト】
+    // Y=0〜31 の領域に 32x32 フォントを描画
+    // drawString32(72, 0, "　会議中　");
+    // drawString32(72, 32, " 左ドアへ ");
+
+    // Y=32〜 の領域に 16x16 フォントを描画
+    // drawString16(72, 32, "RP2350 16x16");
+    // drawString16(72, 48, "SSD1322 OLED");
+    drawString16(72,  0, "AUTHENTICATION SUCCESS");
+    drawString16(72, 16, "ACTIVATION SUCCESS");
+    drawString16(72, 32, "UNLOCK COMPLETE");
+    drawString16(72, 48, "OMEGA PSYCOMMU ACTIVE");
 
     updateDisplay();
 }
