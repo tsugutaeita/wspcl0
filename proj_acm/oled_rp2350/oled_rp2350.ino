@@ -91,6 +91,121 @@ void clearBuffer() {
     memset(frameBuffer, 0, sizeof(frameBuffer));
 }
 
+// ---------------------------------------------------------
+// ピクセル数ベースの輝度補正テーブル (16段階)
+// インデックス0が「点灯数0〜16」、インデックス15が「点灯数241〜256」
+// 値(0〜15)が、その段階で適用する輝度です。
+// ※ ムラをなくすためのチューニング用配列です。
+// ---------------------------------------------------------
+const uint8_t brightnessTable[16] = {
+    9, // 0:   0〜16粒点灯   (負荷極小 -> あえて輝度を絞る)
+    10, // 1:  17〜32粒点灯
+    11, // 2:  33〜48粒点灯
+    12, // 3:  49〜64粒点灯
+    13, // 4:  65〜80粒点灯
+    14, // 5:  81〜96粒点灯
+    15, // 6:  97〜112粒点灯
+    15, // 7: 113〜128粒点灯  (半分点灯)
+    15,  // 8: 129〜144粒点灯
+    15,  // 9: 145〜160粒点灯
+    15,  // 10: 161〜176粒点灯
+    15,  // 11: 177〜192粒点灯
+    15,  // 12: 193〜208粒点灯
+    15,  // 13: 209〜224粒点灯
+    15,  // 14: 225〜240粒点灯
+    15   // 15: 241〜256粒点灯 (負荷MAX -> MAX輝度)
+};
+
+// ---------------------------------------------------------
+// ピクセルカウントによる輝度補正関数
+// ---------------------------------------------------------
+void applyPixelCountCompensation() {
+    for (int y = 0; y < DISP_HEIGHT; y++) {
+        int litPixelCount = 0;
+
+        // 1. その行の「点灯している粒数」をカウントする
+        for (int byteIdx = 0; byteIdx < DISP_WIDTH / 2; byteIdx++) {
+            uint8_t data = frameBuffer[y][byteIdx];
+            if (data == 0) continue; // 両方黒ならスキップ
+
+            uint8_t left = data >> 4;
+            uint8_t right = data & 0x0F;
+
+            // 輝度が0より大きければ「点灯している」とみなす
+            if (left > 0) litPixelCount++;
+            if (right > 0) litPixelCount++;
+        }
+
+        // 2. 点灯数が0なら書き換え不要なので次の行へ
+        if (litPixelCount == 0) continue;
+
+        // 3. テーブルのインデックス(0〜15)を算出
+        // 例: 1粒なら0、17粒なら1、256粒なら15
+        int tableIndex = (litPixelCount - 1) / 16;
+        
+        // 配列外アクセス防止（念のため）
+        if (tableIndex < 0) tableIndex = 0;
+        if (tableIndex > 15) tableIndex = 15;
+
+        // 4. テーブルから目標輝度を取得
+        uint8_t targetBrightness = brightnessTable[tableIndex];
+
+        // 5. バッファを書き換えて輝度を統一する
+        for (int byteIdx = 0; byteIdx < DISP_WIDTH / 2; byteIdx++) {
+            uint8_t data = frameBuffer[y][byteIdx];
+            if (data == 0) continue;
+
+            uint8_t left = data >> 4;
+            uint8_t right = data & 0x0F;
+
+            // 点灯しているピクセルの輝度を、テーブルで引いた値で上書きする
+            if (left > 0) left = targetBrightness;
+            if (right > 0) right = targetBrightness;
+
+            frameBuffer[y][byteIdx] = (left << 4) | right;
+        }
+    }
+}
+
+// ---------------------------------------------------------
+// 真のクロストーク確認用テストパターン (完全版)
+// 0〜15のすべての配列インデックスを正確に4行ずつトリガーします
+// ---------------------------------------------------------
+void generateTestPattern() {
+    clearBuffer();
+
+    for (int y = 0; y < DISP_HEIGHT; y++) {
+        // 1. 左端に「基準となる縦帯」を描画 (幅4ピクセル: x=0, 1, 2, 3)
+        for (int x = 0; x < 4; x++) {
+            drawPixel(x, y, 15);
+        }
+
+        // 2. 現在の行が16段階のどのステップか (0 〜 15)
+        // DISP_HEIGHT=64 なので、4行ごとに1ステップ進む
+        int step = y / 4; 
+
+        // 3. このステップで目標とする「合計点灯ピクセル数」
+        // 各インデックスの上限値(16, 32, 48 ... 256)を狙う。
+        int targetTotalPixels = (step + 1) * 16;
+        
+        // 【重要】画面幅256pxのうち、隙間(x=4,5,6,7)を空けるため、物理的な最大点灯数は252pxになります。
+        // 252pxでもインデックス15（241〜256粒）の範囲内にしっかり収まるため問題ありません。
+        if (targetTotalPixels > 252) {
+            targetTotalPixels = 252; 
+        }
+
+        // 4. 階段部分で点灯すべきピクセル数 = 目標合計 - 縦帯(4)
+        int staircasePixels = targetTotalPixels - 4;
+
+        // 5. X=8 から階段を描画
+        for (int x = 8; x < 8 + staircasePixels; x++) {
+            if (x < DISP_WIDTH) { // バッファあふれ防止
+                drawPixel(x, y, 15);
+            }
+        }
+    }
+}
+
 // バッファの内容をOLEDに転送
 void updateDisplay() {
     sendCommand(0x15); sendData(0x1C); sendData(0x5B);
@@ -277,10 +392,18 @@ void setup() {
     // Y=32〜 の領域に 16x16 フォントを描画
     // drawString16(72, 32, "RP2350 16x16");
     // drawString16(72, 48, "SSD1322 OLED");
-    drawString16(72,  0, "AUTHENTICATION SUCCESS");
-    drawString16(72, 16, "ACTIVATION SUCCESS");
-    drawString16(72, 32, "UNLOCK COMPLETE");
-    drawString16(72, 48, "OMEGA PSYCOMMU ACTIVE");
+    // drawString16(72,  0, "AUTHENTICATION SUCCESS");
+    // drawString16(72, 16, "ACTIVATION SUCCESS");
+    // drawString16(72, 32, "UNLOCK COMPLETE");
+    // drawString16(72, 48, "OMEGA PSYCOMMU ACTIVE");
+    drawString32(72, 0, "直流が命。");
+    drawString32(80, 32, "   和田和千");
+    
+    // ★ テストパターンを描画バッファに生成
+    // generateTestPattern();
+    
+    // ★ 描画が終わったバッファに対して、ピクセル数ベースの補正をかける
+    applyPixelCountCompensation();
 
     updateDisplay();
 }
