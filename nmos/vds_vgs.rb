@@ -148,7 +148,7 @@ gnuplot_script = <<~GP
     set bmargin 6
     set label "VGS-VDS特性曲線（vdd=#{@vdd} V, vth=#{@vth} V, k=#{(@k*1000000).round} µS/V）" at graph 0.05, -0.2
     #plot '#{data_file}' with linespoints dt 2 lc 'black' title 'plot'
-    plot '#{data_file}' lc 'black' pt 7 title '実測値', 'calculated_curve.csv' with linespoints dt 2 lc 'black' pt 9 title '近似値'
+    plot '#{data_file}' lc 'black' pt 7 title '実測値', 'calculated_curve.csv' with linespoints dt 2 lc 'black' pt 9 title '計算値'
 GP
 
 # UTF-8 で書き出す

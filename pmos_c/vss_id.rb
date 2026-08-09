@@ -4,18 +4,22 @@
 # pmosソース接地増幅回路用コード
 
 # データファイル名
-data_file = "vgs_vds_1219.csv"
+data_file = "normal.csv"
+data_file_c = "cascode.csv"
 
 # 最小誤差を求めるか
 # true: 最小二乗法で最適化を行う
 # false: 最適化を行わず、初期値のまま計算
 find_min_error = false
 
+# gnuplotの描画をするか。true にすると生成後に gnuplot を呼び出します（PATH に gnuplot が必要）。
+run_gnuplot = true
+
 # 係数などの初期値
 @k = 0.00034
 @vth = -0.7
-@R = 2011
-@vdd = 6.0
+@R = 2001
+@vss = 8.0
 
 # シミュレーション値
 k_min = 0.0001
@@ -26,16 +30,16 @@ step_k = 0.000001
 step_vth = 0.001
 
 # 飽和領域のモデル式
-def vds_sat(vgs)
-  vds = @vdd-@R*0.5*@k*((vgs-@vth)**2)
-  return vds
+def vdp_sat(vgp)
+  vdp = @R*0.5*@k*((vgp-@vss-@vth)**2)
+  return vdp
 end
 # 線形領域のモデル式
-# 2次方程式 0.5*k*R*vds^2 - [1 + k*R*(vgs-vth)]*vds + vdd = 0 を解く
-def vds_lin(vgs, vds_raw)
+# 2次方程式 0.5*k*R*vdp^2 - [1 + k*R*(vgp-vth)]*vdp + vss = 0 を解く
+def vdp_lin(vgp, vdp_raw)
   a = 0.5 * @k * @R
-  b = -(1 + @k * @R * (vgs - @vth))
-  c = @vdd
+  b = 1-(@k * @R * (vgp - @vth))
+  c = @R*@k*(vgp-0.5*@vss-@vth)*@vss
   
   # 判別式
   discriminant = b**2 - 4*a*c
@@ -43,24 +47,24 @@ def vds_lin(vgs, vds_raw)
   if discriminant < 0
     # 判別式が負の場合、飽和領域の式を使う
     # （線形領域の境界を超えている可能性がある）
-    #puts "Warning: discriminant < 0 at vgs=#{vgs}, using saturation model"
-    return vds_sat(vgs)
+    #puts "Warning: discriminant < 0 at vgp=#{vgp}, using saturation model"
+    return vdp_sat(vgp)
   end
   
   # 2つの解のうち、物理的に妥当な方（小さい方）を選択
-  vds1 = (-b - Math.sqrt(discriminant)) / (2*a)
-  vds2 = (-b + Math.sqrt(discriminant)) / (2*a)
+  vdp1 = (-b - Math.sqrt(discriminant)) / (2*a)
+  vdp2 = (-b + Math.sqrt(discriminant)) / (2*a)
   
-  # 通常は小さい方の解が物理的に正しい
-  vds = [vds1, vds2].min
+  # 大きく見ればvdpは単調減少するから、小さい方を選ぶ
+  vdp = [vdp1, vdp2].min
   
-  return vds
+  return vdp
 end
 # 線形領域と飽和領域の境界
-def vgs_hat(k, vth)
-  vgs_hat = ((-1+(1+4*k*@R*@vdd)**0.5)/(2*k*@R))+vth
-  #puts "vgs_hat=#{vgs_hat} (VGS > vgs_hat: 飽和, VGS <= vgs_hat: 線形)"
-  return vgs_hat
+def vgp_hat(k, vth)
+  vgp_hat = ((-1+(1+4*k*@R*@vss)**0.5)/(2*k*@R))+vth
+  #puts "vgp_hat=#{vgp_hat} (vgp > vgp_hat: 飽和, vgp <= vgp_hat: 線形)"
+  return vgp_hat
 end
 
 if find_min_error
@@ -72,15 +76,15 @@ if find_min_error
       error_sum = 0.0
       data = File.new(data_file, "r:UTF-8")
       File.foreach(data) do |line|
-        vgs_raw, vds_raw = line.split.map(&:to_f)
-        if vgs_raw <= vgs_hat(@k, @vth) then
-          vds_ideal = vds_lin(vgs_raw, vds_raw)
-        elsif vgs_raw > @vth
-          vds_ideal = @vdd
+        vgp_raw, vdp_raw = line.split.map(&:to_f)
+        if vgp_raw <= vgp_hat(@k, @vth) then
+          vdp_ideal = vdp_lin(vgp_raw, vdp_raw)
+        elsif vgp_raw > @vth
+          vdp_ideal = @vss
         else
-          vds_ideal = vds_sat(vgs_raw)
+          vdp_ideal = vdp_sat(vgp_raw)
         end
-        error = vds_ideal - vds_raw
+        error = vdp_ideal - vdp_raw
         error_sum += error**2
       end
       data.close
@@ -104,32 +108,23 @@ end
 # 理想曲線を生成
 file = File.new("calculated_curve.csv", "w:UTF-8")
 data = File.new(data_file, "r:UTF-8")
+data_c = File.new(data_file_c, "r:UTF-8")
 
 File.foreach(data) do |line|
-  vgs_raw, vds_raw = line.split.map(&:to_f)
-  if vgs_raw >= vgs_hat(@k, @vth) then
-    vds_ideal = vds_lin(vgs_raw, vds_raw)
-    log = "lin"
-  elsif vgs_raw < @vth
-    vds_ideal = @vdd
-    log = "cutoff"
-  else
-    vds_ideal = vds_sat(vgs_raw)
-    log = "sat"
-  end
-  file.write(vgs_raw)
-  file.write(" ")
-  file.write(vds_ideal)
-  file.write(" ")
-  file.puts(log)
+  vss_raw, vdp_raw = line.split.map(&:to_f)
+  vdp_calculated = vdp_raw / @R
+  file.puts "#{vss_raw} #{vdp_calculated}".map(&:to_f)
 end
 data.close
+
+File.foreach(data) do |line|
+  vss_raw_c, vdp_raw_c = line_c.split.map(&:to_f)
+end
+data_c.close
+
 file.close
 
-# 実行するかどうか。true にすると生成後に gnuplot を呼び出します（PATH に gnuplot が必要）。
-run_gnuplot = true
-
-output_image = 'vgs_vds_1219.png'
+output_image = 'vss_id.png'
 gp_file = "plot.gp"
 
 gnuplot_script = <<~GP
@@ -141,18 +136,18 @@ gnuplot_script = <<~GP
     set output '#{output_image}'
     unset title
     set grid
-    set xlabel "ゲート・ソース間電圧VGS [V]"
-    set ylabel "ドレイン・ソース間電圧VDS [V]"
-    set xrange [0:-8]
-    set yrange [0:7]
+    set xlabel "電源電圧vss [V]"
+    set ylabel "出力電圧vdp [V]"
+    set xrange [4:8]
+    set yrange [0:3]
     set xtics 1
     set mxtics 5
     set ytics 1
     set mytics 5
     set bmargin 6
-    set label "VGS-VDS特性曲線（vdd=#{@vdd} V, vth=#{@vth} V, k=#{(@k*1000000).round} µS/V）" at graph 0.05, -0.2
-    #plot '#{data_file}' with linespoints dt 2 lc 'black' title 'plot'
-    plot '#{data_file}' lc 'black' pt 7 title '実測値', 'calculated_curve.csv' with linespoints dt 2 lc 'black' pt 9 title '近似値'
+    # set label "（vss=#{@vss} V, vth=#{format('%.2f', @vth)} V, k=#{(@k*1000000).round} µS/V）" at graph 0.2, -0.2
+    # plot '#{data_file}' with linespoints dt 1 pt 7 lc 'black' title '実測値'
+    plot '#{data_file}' with linespoints dt 1 pt 7 lc 'black' title 'PMOS1つ', '#{data_file_c}' with linespoints dt 2 lc 'black' pt 9 title 'PMOSカスコード接続'
 GP
 
 # UTF-8 で書き出す

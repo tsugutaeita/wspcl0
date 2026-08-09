@@ -3,8 +3,15 @@
 
 // 作成済みのヘッダをインクルード
 #include "m_h64w69.h"
+<<<<<<< Updated upstream
 #include "shinonome16.h"   // 16x16フォント用
 #include "shinonome32.h" // 32x32フォント用
+=======
+#include "hankaku.h"
+#include "kanjic.h"
+#include "latin1.h"
+#include "mincho.h"
+>>>>>>> Stashed changes
 
 // --- ピン定義 (XIAO RP2350) ---
 #define OLED_MOSI D10
